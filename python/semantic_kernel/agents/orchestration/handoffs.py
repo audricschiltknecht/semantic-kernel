@@ -167,10 +167,13 @@ class HandoffAgentActor(AgentActorBase):
         streaming_agent_response_callback: Callable[[StreamingChatMessageContent, bool], Awaitable[None] | None]
         | None = None,
         human_response_function: Callable[[], Awaitable[ChatMessageContent] | ChatMessageContent] | None = None,
+        can_complete: bool = True,
     ) -> None:
         """Initialize the handoff agent actor."""
         self._handoff_connections = handoff_connections
         self._result_callback = result_callback
+
+        self._can_complete = can_complete
 
         self._kernel = agent.kernel.clone()
         self._add_handoff_functions()
@@ -217,7 +220,8 @@ class HandoffAgentActor(AgentActorBase):
                     method=partial(self._handoff_to_agent, handoff_agent_name),
                 )
             )
-        functions.append(KernelFunctionFromMethod(self._complete_task, plugin_name=HANDOFF_PLUGIN_NAME))
+        if self._can_complete:
+            functions.append(KernelFunctionFromMethod(self._complete_task, plugin_name=HANDOFF_PLUGIN_NAME))
         self._kernel.add_plugin(plugin=KernelPlugin(name=HANDOFF_PLUGIN_NAME, functions=functions))
         self._kernel.add_filter(FilterTypes.AUTO_FUNCTION_INVOCATION, self._handoff_function_filter)
 
@@ -383,6 +387,7 @@ class HandoffOrchestration(OrchestrationBase[TIn, TOut]):
         streaming_agent_response_callback: Callable[[StreamingChatMessageContent, bool], Awaitable[None] | None]
         | None = None,
         human_response_function: Callable[[], Awaitable[ChatMessageContent] | ChatMessageContent] | None = None,
+        can_complete: bool = True,
     ) -> None:
         """Initialize the handoff orchestration.
 
@@ -400,9 +405,11 @@ class HandoffOrchestration(OrchestrationBase[TIn, TOut]):
                 is produced by the agents.
             human_response_function (Callable | None): A function that is called when a human response is
                 needed.
+            can_complete (bool): Whether the handoff can complete, ie an `OrchestrationResult` will have a result.
         """
         self._handoffs = handoffs
         self._human_response_function = human_response_function
+        self._can_complete = can_complete
 
         super().__init__(
             members=members,
@@ -486,6 +493,7 @@ class HandoffOrchestration(OrchestrationBase[TIn, TOut]):
                     agent_response_callback=self._agent_response_callback,
                     streaming_agent_response_callback=self._streaming_agent_response_callback,
                     human_response_function=self._human_response_function,
+                    can_complete=self._can_complete,
                 ),
             )
 
