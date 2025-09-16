@@ -278,7 +278,7 @@ class HandoffAgentActor(AgentActorBase):
 
         response = await self._invoke_agent_with_potentially_no_response(kernel=self._kernel)
 
-        while not self._task_completed:
+        while not self._task_completed and not cts.cancellation_token.is_cancelled():
             if self._handoff_agent_name:
                 await self.publish_message(
                     HandoffRequestMessage(agent_name=self._handoff_agent_name),
